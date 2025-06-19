@@ -61,3 +61,8 @@ flutter:
   assets:
     - assets/sounds/
     - assets/icons/
+
+# Dependency overrides for namespace fixes
+dependency_overrides:
+  isar_flutter_libs:
+    path: ./local_packages/isar_flutter_libs
