@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
 
@@ -13,7 +14,7 @@ class CycleProgress extends StatelessWidget {
         return Column(
           children: [
             Text(
-              'Pomodoro Cycle',
+              AppLocalizations.of(context)!.pomodoroCycle,
               style: TextStyle(
                 color: Colors.white.withOpacity(0.8),
                 fontSize: 14,

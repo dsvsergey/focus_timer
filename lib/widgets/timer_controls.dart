@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
 
@@ -28,7 +29,7 @@ class TimerControls extends StatelessWidget {
             _buildMainButton(
               onPressed: _getMainButtonAction(context, state),
               icon: _getMainButtonIcon(state.status),
-              text: _getMainButtonText(state.status),
+              text: _getMainButtonText(state.status, context),
             ),
 
             const SizedBox(width: 20),
@@ -131,16 +132,13 @@ class TimerControls extends StatelessWidget {
     }
   }
 
-  String _getMainButtonText(TimerStatus status) {
-    switch (status) {
-      case TimerStatus.idle:
-        return 'START';
-      case TimerStatus.paused:
-        return 'RESUME';
-      case TimerStatus.running:
-        return 'PAUSE';
-      case TimerStatus.completed:
-        return 'RESET';
-    }
+  String _getMainButtonText(TimerStatus status, BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (status) {
+      TimerStatus.idle => l10n.start,
+      TimerStatus.paused => l10n.resume,
+      TimerStatus.running => l10n.pause,
+      TimerStatus.completed => l10n.reset,
+    };
   }
 }

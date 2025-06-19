@@ -1,47 +1,30 @@
 import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:injectable/injectable.dart';
 import '../models/timer_state.dart';
 import '../models/timer_session.dart';
 import '../models/app_settings.dart';
 import '../repositories/database_repository.dart';
+import '../services/notification_service.dart';
 
+@injectable
 class TimerCubit extends Cubit<TimerState> {
-  TimerCubit(this._databaseRepository) : super(const TimerState());
+  TimerCubit(this._databaseRepository, this._notificationService)
+    : super(const TimerState());
 
   final DatabaseRepository _databaseRepository;
+  final NotificationService _notificationService;
   Timer? _timer;
   AppSettings? _settings;
 
-  final FlutterLocalNotificationsPlugin _notificationsPlugin =
-      FlutterLocalNotificationsPlugin();
-
   Future<void> initialize() async {
-    await _initializeNotifications();
+    await _notificationService.initialize();
     _settings = await _databaseRepository.getSettings();
 
     // Set initial timer duration based on settings
     emit(
       state.copyWith(remainingSeconds: (_settings?.focusDuration ?? 25) * 60),
     );
-  }
-
-  Future<void> _initializeNotifications() async {
-    const androidSettings = AndroidInitializationSettings(
-      '@mipmap/ic_launcher',
-    );
-    const iosSettings = DarwinInitializationSettings(
-      requestAlertPermission: true,
-      requestBadgePermission: true,
-      requestSoundPermission: true,
-    );
-
-    const initSettings = InitializationSettings(
-      android: androidSettings,
-      iOS: iosSettings,
-    );
-
-    await _notificationsPlugin.initialize(initSettings);
   }
 
   void startTimer() {
@@ -95,7 +78,9 @@ class TimerCubit extends Cubit<TimerState> {
 
     // Show notification
     if (completed && (_settings?.notificationsEnabled ?? true)) {
-      await _showNotification();
+      await _notificationService.showSessionCompleteNotification(
+        state.currentSessionType,
+      );
     }
 
     // Determine next session type
@@ -152,56 +137,16 @@ class TimerCubit extends Cubit<TimerState> {
     }
   }
 
-  Future<void> _showNotification() async {
-    String title;
-    String body;
-
-    switch (state.currentSessionType) {
-      case SessionType.focus:
-        title = 'Focus Session Complete!';
-        body = 'Great job! Time for a break.';
-        break;
-      case SessionType.shortBreak:
-        title = 'Break Complete!';
-        body = 'Ready to focus again?';
-        break;
-      case SessionType.longBreak:
-        title = 'Long Break Complete!';
-        body = 'You\'ve completed a full Pomodoro cycle!';
-        break;
-    }
-
-    const androidDetails = AndroidNotificationDetails(
-      'timer_channel',
-      'Timer Notifications',
-      channelDescription: 'Notifications for timer completion',
-      importance: Importance.high,
-      priority: Priority.high,
-    );
-
-    const iosDetails = DarwinNotificationDetails(
-      presentAlert: true,
-      presentBadge: true,
-      presentSound: true,
-    );
-
-    const notificationDetails = NotificationDetails(
-      android: androidDetails,
-      iOS: iosDetails,
-    );
-
-    await _notificationsPlugin.show(0, title, body, notificationDetails);
-  }
-
-  String getSessionTypeTitle() {
-    switch (state.currentSessionType) {
-      case SessionType.focus:
-        return 'Focus';
-      case SessionType.shortBreak:
-        return 'Short Break';
-      case SessionType.longBreak:
-        return 'Long Break';
-    }
+  String getSessionTypeTitle(
+    String focus,
+    String shortBreak,
+    String longBreak,
+  ) {
+    return switch (state.currentSessionType) {
+      SessionType.focus => focus,
+      SessionType.shortBreak => shortBreak,
+      SessionType.longBreak => longBreak,
+    };
   }
 
   String getFormattedTime() {

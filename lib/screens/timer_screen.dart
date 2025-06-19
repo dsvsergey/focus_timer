@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
 import '../models/timer_session.dart';
@@ -26,7 +27,11 @@ class TimerScreen extends StatelessWidget {
 
                   // Session type title
                   Text(
-                    context.read<TimerCubit>().getSessionTypeTitle(),
+                    context.read<TimerCubit>().getSessionTypeTitle(
+                      AppLocalizations.of(context)!.focus,
+                      AppLocalizations.of(context)!.shortBreak,
+                      AppLocalizations.of(context)!.longBreak,
+                    ),
                     style: GoogleFonts.inter(
                       fontSize: 24,
                       fontWeight: FontWeight.w600,
@@ -52,7 +57,11 @@ class TimerScreen extends StatelessWidget {
                   const SizedBox(height: 40),
 
                   // Session stats
-                  _buildSessionStats(state),
+                  _buildSessionStats(
+                    state,
+                    AppLocalizations.of(context)!.today,
+                    AppLocalizations.of(context)!.cycles,
+                  ),
 
                   const SizedBox(height: 20),
                 ],
@@ -74,7 +83,11 @@ class TimerScreen extends StatelessWidget {
     };
   }
 
-  Widget _buildSessionStats(TimerState state) {
+  Widget _buildSessionStats(
+    TimerState state,
+    String todayLabel,
+    String cyclesLabel,
+  ) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       decoration: BoxDecoration(
@@ -84,9 +97,17 @@ class TimerScreen extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceAround,
         children: [
-          _buildStatItem('Today', '${state.totalFocusSessions}', Icons.today),
+          _buildStatItem(
+            todayLabel,
+            '${state.totalFocusSessions}',
+            Icons.today,
+          ),
           Container(width: 1, height: 30, color: Colors.white.withOpacity(0.3)),
-          _buildStatItem('Cycles', '${state.completedCycles}', Icons.refresh),
+          _buildStatItem(
+            cyclesLabel,
+            '${state.completedCycles}',
+            Icons.refresh,
+          ),
         ],
       ),
     );

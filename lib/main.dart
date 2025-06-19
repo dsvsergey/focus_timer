@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'l10n/app_localizations.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'core/injection.dart';
 import 'cubit/timer_cubit.dart';
-import 'repositories/database_repository.dart';
 import 'screens/timer_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  configureDependencies();
   runApp(const FocusTimerApp());
 }
 
@@ -18,6 +21,13 @@ class FocusTimerApp extends StatelessWidget {
     return MaterialApp(
       title: 'Focus Timer',
       debugShowCheckedModeBanner: false,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      supportedLocales: const [Locale('en'), Locale('uk')],
       theme: ThemeData(
         fontFamily: GoogleFonts.inter().fontFamily,
         colorScheme: ColorScheme.fromSeed(
@@ -27,7 +37,7 @@ class FocusTimerApp extends StatelessWidget {
         useMaterial3: true,
       ),
       home: BlocProvider(
-        create: (context) => TimerCubit(DatabaseRepository())..initialize(),
+        create: (context) => getIt<TimerCubit>()..initialize(),
         child: const TimerScreen(),
       ),
     );

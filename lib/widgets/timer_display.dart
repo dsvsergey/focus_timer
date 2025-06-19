@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
 import '../models/timer_session.dart';
@@ -53,7 +54,7 @@ class TimerDisplay extends StatelessWidget {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        _getStatusText(state.status),
+                        _getStatusText(state.status, context),
                         style: GoogleFonts.inter(
                           fontSize: 14,
                           color: Colors.white.withOpacity(0.8),
@@ -89,16 +90,13 @@ class TimerDisplay extends StatelessWidget {
     }
   }
 
-  String _getStatusText(TimerStatus status) {
-    switch (status) {
-      case TimerStatus.idle:
-        return 'Ready to start';
-      case TimerStatus.running:
-        return 'Focus time';
-      case TimerStatus.paused:
-        return 'Paused';
-      case TimerStatus.completed:
-        return 'Session complete!';
-    }
+  String _getStatusText(TimerStatus status, BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    return switch (status) {
+      TimerStatus.idle => l10n.readyToStart,
+      TimerStatus.running => l10n.focusTime,
+      TimerStatus.paused => l10n.paused,
+      TimerStatus.completed => l10n.sessionComplete,
+    };
   }
 }

@@ -10,6 +10,11 @@ dependencies:
   flutter:
     sdk: flutter
   
+  # Localization
+  flutter_localizations:
+    sdk: flutter
+  intl: ^0.20.2
+  
   # State Management
   flutter_bloc: ^8.1.6
   bloc: ^8.1.4
@@ -32,6 +37,10 @@ dependencies:
   
   # Utils
   equatable: ^2.0.5
+  
+  # Dependency Injection
+  get_it: ^8.0.2
+  injectable: ^2.4.4
 
 dev_dependencies:
   flutter_test:
@@ -43,9 +52,11 @@ dev_dependencies:
   freezed: ^2.5.2
   json_serializable: ^6.8.0
   isar_generator: ^3.1.0+1
+  injectable_generator: ^2.4.2
 
 flutter:
   uses-material-design: true
+  generate: true
   
   assets:
     - assets/sounds/

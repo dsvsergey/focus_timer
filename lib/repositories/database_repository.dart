@@ -1,8 +1,10 @@
 import 'package:isar/isar.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:injectable/injectable.dart';
 import '../models/timer_session.dart';
 import '../models/app_settings.dart';
 
+@singleton
 class DatabaseRepository {
   static Isar? _isar;
 
