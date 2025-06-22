@@ -53,6 +53,9 @@ dev_dependencies:
   json_serializable: ^6.8.0
   isar_generator: ^3.1.0+1
   injectable_generator: ^2.4.2
+  
+  # Icon Generation
+  flutter_launcher_icons: ^0.14.4
 
 flutter:
   uses-material-design: true
@@ -76,3 +79,17 @@ flutter:
 dependency_overrides:
   isar_flutter_libs:
     path: ./local_packages/isar_flutter_libs
+
+# Flutter Launcher Icons configuration
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: "assets/icons/v1.png"
+  min_sdk_android: 21
+  web:
+    generate: true
+  windows:
+    generate: true
+    icon_size: 256
+  macos:
+    generate: true

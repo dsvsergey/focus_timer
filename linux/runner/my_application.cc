@@ -20,23 +20,9 @@ static void my_application_activate(GApplication* application) {
   GtkWindow* window =
       GTK_WINDOW(gtk_application_window_new(GTK_APPLICATION(application)));
 
-  // Use a header bar when running in GNOME as this is the common style used
-  // by applications and is the setup most users will be using (e.g. Ubuntu
-  // desktop).
-  // If running on X and not using GNOME then just use a traditional title bar
-  // in case the window manager does more exotic layout, e.g. tiling.
-  // If running on Wayland assume the header bar will work (may need changing
-  // if future cases occur).
-  gboolean use_header_bar = TRUE;
-#ifdef GDK_WINDOWING_X11
-  GdkScreen* screen = gtk_window_get_screen(window);
-  if (GDK_IS_X11_SCREEN(screen)) {
-    const gchar* wm_name = gdk_x11_screen_get_window_manager_name(screen);
-    if (g_strcmp0(wm_name, "GNOME Shell") != 0) {
-      use_header_bar = FALSE;
-    }
-  }
-#endif
+  // Use custom title bar - disable native header bar for consistent look
+  gboolean use_header_bar = FALSE;
+  
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
@@ -45,17 +31,19 @@ static void my_application_activate(GApplication* application) {
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
     gtk_window_set_title(window, "Focus Timer");
+    // Remove window decorations to use custom title bar
+    gtk_window_set_decorated(window, FALSE);
   }
 
-  gtk_window_set_default_size(window, 400, 600);
-  gtk_window_set_resizable(window, TRUE);
+  gtk_window_set_default_size(window, 400, 820);
+  gtk_window_set_resizable(window, FALSE); // Fixed size window
   
-  // Set minimum and maximum window sizes
+  // Set exact window size
   GdkGeometry geometry;
-  geometry.min_width = 350;
-  geometry.min_height = 550;
-  geometry.max_width = 500;
-  geometry.max_height = 700;
+  geometry.min_width = 400;
+  geometry.min_height = 820;
+  geometry.max_width = 400;
+  geometry.max_height = 820;
   gtk_window_set_geometry_hints(window, NULL, &geometry, 
                                (GdkWindowHints)(GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
   gtk_widget_show(GTK_WIDGET(window));

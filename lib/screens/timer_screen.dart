@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import '../l10n/app_localizations.dart';
@@ -7,6 +8,7 @@ import '../models/timer_session.dart';
 import '../widgets/timer_display.dart';
 import '../widgets/timer_controls.dart';
 import '../widgets/cycle_progress.dart';
+import '../widgets/custom_title_bar.dart';
 
 class TimerScreen extends StatelessWidget {
   const TimerScreen({super.key});
@@ -17,58 +19,74 @@ class TimerScreen extends StatelessWidget {
       builder: (context, state) {
         return Scaffold(
           backgroundColor: _getBackgroundColor(state.currentSessionType),
-          body: SafeArea(
-            child: SingleChildScrollView(
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  children: [
-                    const SizedBox(height: 20),
+          body: Column(
+            children: [
+              // Custom title bar for desktop platforms
+              if (Platform.isWindows || Platform.isMacOS || Platform.isLinux)
+                CustomTitleBar(
+                  title: 'Focus Timer',
+                  backgroundColor: _getBackgroundColor(
+                    state.currentSessionType,
+                  ),
+                ),
 
-                    // Session type title
-                    Text(
-                      context.read<TimerCubit>().getSessionTypeTitle(
-                        AppLocalizations.of(context)!.focus,
-                        AppLocalizations.of(context)!.shortBreak,
-                        AppLocalizations.of(context)!.longBreak,
-                      ),
-                      style: const TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'Inter',
-                        color: Colors.white,
+              // Main content
+              Expanded(
+                child: SafeArea(
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24.0),
+                      child: Column(
+                        children: [
+                          const SizedBox(height: 20),
+
+                          // Session type title
+                          Text(
+                            context.read<TimerCubit>().getSessionTypeTitle(
+                              AppLocalizations.of(context)!.focus,
+                              AppLocalizations.of(context)!.shortBreak,
+                              AppLocalizations.of(context)!.longBreak,
+                            ),
+                            style: const TextStyle(
+                              fontSize: 24,
+                              fontWeight: FontWeight.w600,
+                              fontFamily: 'Inter',
+                              color: Colors.white,
+                            ),
+                          ),
+
+                          const SizedBox(height: 40),
+
+                          // Timer display
+                          const TimerDisplay(),
+
+                          const SizedBox(height: 30),
+
+                          // Cycle progress
+                          const CycleProgress(),
+
+                          const SizedBox(height: 40),
+
+                          // Timer controls
+                          const TimerControls(),
+
+                          const SizedBox(height: 30),
+
+                          // Session stats
+                          _buildSessionStats(
+                            state,
+                            AppLocalizations.of(context)!.today,
+                            AppLocalizations.of(context)!.cycles,
+                          ),
+
+                          const SizedBox(height: 20),
+                        ],
                       ),
                     ),
-
-                    const SizedBox(height: 40),
-
-                    // Timer display
-                    const TimerDisplay(),
-
-                    const SizedBox(height: 30),
-
-                    // Cycle progress
-                    const CycleProgress(),
-
-                    const SizedBox(height: 40),
-
-                    // Timer controls
-                    const TimerControls(),
-
-                    const SizedBox(height: 30),
-
-                    // Session stats
-                    _buildSessionStats(
-                      state,
-                      AppLocalizations.of(context)!.today,
-                      AppLocalizations.of(context)!.cycles,
-                    ),
-
-                    const SizedBox(height: 20),
-                  ],
+                  ),
                 ),
               ),
-            ),
+            ],
           ),
         );
       },

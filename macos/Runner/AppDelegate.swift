@@ -12,20 +12,28 @@ class AppDelegate: FlutterAppDelegate {
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return false // Keep app running when window is closed
   }
-  
+
   override func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
     return true
   }
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
-    // Set window size and properties
+              // Set window size and properties
     if let window = mainFlutterWindow {
-      window.setContentSize(NSSize(width: 400, height: 600))
-      window.minSize = NSSize(width: 350, height: 550)
-      window.maxSize = NSSize(width: 500, height: 700)
+      window.setContentSize(NSSize(width: 400, height: 820))
+      window.minSize = NSSize(width: 400, height: 820)
+      window.maxSize = NSSize(width: 400, height: 820)
       window.center()
       window.isRestorable = true
       window.title = "Focus Timer"
+      
+      // Hide standard title bar and create custom one
+      window.titlebarAppearsTransparent = true
+      window.titleVisibility = .hidden
+      window.styleMask.insert(.fullSizeContentView)
+      // Keep close button but hide other standard buttons
+      window.standardWindowButton(.miniaturizeButton)?.isHidden = true
+      window.standardWindowButton(.zoomButton)?.isHidden = true
     }
     
     let controller : FlutterViewController = mainFlutterWindow?.contentViewController as! FlutterViewController

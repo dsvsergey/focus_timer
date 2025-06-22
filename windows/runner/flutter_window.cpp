@@ -25,6 +25,27 @@ bool FlutterWindow::OnCreate() {
     return false;
   }
   RegisterPlugins(flutter_controller_->engine());
+  
+  // Set up method channel for window operations
+  flutter::MethodChannel<flutter::EncodableValue> window_channel(
+      flutter_controller_->engine()->messenger(), "focus_timer/window",
+      &flutter::StandardMethodCodec::GetInstance());
+
+  window_channel.SetMethodCallHandler(
+      [this](const flutter::MethodCall<flutter::EncodableValue>& call,
+              std::unique_ptr<flutter::MethodResult<flutter::EncodableValue>> result) {
+        if (call.method_name().compare("closeWindow") == 0) {
+          DestroyWindow(GetHandle());
+          result->Success();
+        } else if (call.method_name().compare("startDrag") == 0) {
+          ReleaseCapture();
+          SendMessage(GetHandle(), WM_NCLBUTTONDOWN, HTCAPTION, 0);
+          result->Success();
+        } else {
+          result->NotImplemented();
+        }
+      });
+  
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
