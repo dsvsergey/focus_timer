@@ -83,4 +83,46 @@ class MacOSService {
       }
     }
   }
+
+  Future<void> updateMenuBarForPause() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateMenuBarForPause');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating menu bar for pause: $e');
+      }
+    }
+  }
+
+  Future<void> updateMenuBarForResume() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateMenuBarForResume');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating menu bar for resume: $e');
+      }
+    }
+  }
+
+  Future<void> updateMenuItems({
+    required bool isRunning,
+    required bool isPaused,
+  }) async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateMenuItems', {
+        'isRunning': isRunning,
+        'isPaused': isPaused,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating menu items: $e');
+      }
+    }
+  }
 }

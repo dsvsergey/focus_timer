@@ -5,6 +5,9 @@ import FlutterMacOS
 class AppDelegate: FlutterAppDelegate {
   private var statusBarItem: NSStatusItem?
   private var menuBarTimer: Timer?
+  private var pauseResumeMenuItem: NSMenuItem?
+  private var isTimerRunning = false
+  private var isTimerPaused = false
   
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return false // Keep app running when window is closed
@@ -49,13 +52,31 @@ class AppDelegate: FlutterAppDelegate {
         self.hideMenuBarIcon()
         result(nil)
         
-      case "updateMenuBarTitle":
+              case "updateMenuBarTitle":
         if let args = call.arguments as? [String: Any],
            let title = args["title"] as? String {
           self.updateMenuBarTitle(title: title)
           result(nil)
         } else {
           result(FlutterError(code: "INVALID_ARGUMENT", message: "Title required", details: nil))
+        }
+        
+      case "updateMenuBarForPause":
+        self.updateMenuBarForPause()
+        result(nil)
+        
+      case "updateMenuBarForResume":
+        self.updateMenuBarForResume()
+        result(nil)
+        
+      case "updateMenuItems":
+        if let args = call.arguments as? [String: Any],
+           let isRunning = args["isRunning"] as? Bool,
+           let isPaused = args["isPaused"] as? Bool {
+          self.updateMenuItems(isRunning: isRunning, isPaused: isPaused)
+          result(nil)
+        } else {
+          result(FlutterError(code: "INVALID_ARGUMENT", message: "isRunning and isPaused required", details: nil))
         }
         
       default:
@@ -132,6 +153,14 @@ class AppDelegate: FlutterAppDelegate {
     
     menu.addItem(NSMenuItem.separator())
     
+    // Add pause/resume menu item
+    pauseResumeMenuItem = NSMenuItem(title: "Pause Timer", action: #selector(pauseResumeTimer), keyEquivalent: "")
+    pauseResumeMenuItem?.target = self
+    pauseResumeMenuItem?.isEnabled = false // Initially disabled
+    menu.addItem(pauseResumeMenuItem!)
+    
+    menu.addItem(NSMenuItem.separator())
+    
     let quitItem = NSMenuItem(title: "Quit Focus Timer", action: #selector(quitApp), keyEquivalent: "q")
     quitItem.target = self
     menu.addItem(quitItem)
@@ -152,5 +181,58 @@ class AppDelegate: FlutterAppDelegate {
   
   @objc private func quitApp() {
     NSApp.terminate(nil)
+  }
+  
+  @objc private func pauseResumeTimer() {
+    // Send command back to Flutter
+    if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
+      let channel = FlutterMethodChannel(name: "focus_timer/macos", binaryMessenger: controller.engine.binaryMessenger)
+      
+      if isTimerPaused {
+        channel.invokeMethod("resumeTimer", arguments: nil)
+      } else {
+        channel.invokeMethod("pauseTimer", arguments: nil)
+      }
+    }
+  }
+  
+  // MARK: - Pause/Resume Methods
+  
+  private func updateMenuBarForPause() {
+    DispatchQueue.main.async {
+      if let button = self.statusBarItem?.button {
+        button.title = "⏸️ ||"
+      }
+      // Also update dock badge to show pause symbol
+      NSApp.dockTile.badgeLabel = "||"
+      
+      self.isTimerPaused = true
+      self.pauseResumeMenuItem?.title = "Resume Timer"
+    }
+  }
+  
+  private func updateMenuBarForResume() {
+    DispatchQueue.main.async {
+      self.isTimerPaused = false
+      self.pauseResumeMenuItem?.title = "Pause Timer"
+      // The timer will update the title and dock badge with actual time
+    }
+  }
+  
+  private func updateMenuItems(isRunning: Bool, isPaused: Bool) {
+    DispatchQueue.main.async {
+      self.isTimerRunning = isRunning
+      self.isTimerPaused = isPaused
+      
+      // Enable/disable pause button based on timer state
+      self.pauseResumeMenuItem?.isEnabled = isRunning
+      
+      // Update menu item title
+      if isPaused {
+        self.pauseResumeMenuItem?.title = "Resume Timer"
+      } else {
+        self.pauseResumeMenuItem?.title = "Pause Timer"
+      }
+    }
   }
 }

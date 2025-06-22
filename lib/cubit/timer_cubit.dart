@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:io';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../models/timer_state.dart';
@@ -33,9 +35,25 @@ class TimerCubit extends Cubit<TimerState> {
       state.copyWith(remainingSeconds: (_settings?.focusDuration ?? 25) * 60),
     );
 
+    // Set up method channel for macOS commands
+    if (Platform.isMacOS) {
+      const channel = MethodChannel('focus_timer/macos');
+      channel.setMethodCallHandler((call) async {
+        switch (call.method) {
+          case 'pauseTimer':
+            pauseTimer();
+            break;
+          case 'resumeTimer':
+            await resumeTimer();
+            break;
+        }
+      });
+    }
+
     // Show menu bar icon and update with initial time
     await _macosService.showMenuBarIcon();
     await _updateMacOSDisplay();
+    await _updateMacOSMenuItems();
   }
 
   void startTimer() {
@@ -44,6 +62,7 @@ class TimerCubit extends Cubit<TimerState> {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
       _updateMacOSDisplay();
+      _updateMacOSMenuItems();
     }
   }
 
@@ -51,7 +70,18 @@ class TimerCubit extends Cubit<TimerState> {
     if (state.status == TimerStatus.running) {
       _timer?.cancel();
       emit(state.copyWith(status: TimerStatus.paused));
-      _updateMacOSDisplay();
+      _updateMacOSDisplayForPause();
+      _updateMacOSMenuItems();
+    }
+  }
+
+  Future<void> resumeTimer() async {
+    if (state.status == TimerStatus.paused) {
+      _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
+      emit(state.copyWith(status: TimerStatus.running));
+      await _macosService.updateMenuBarForResume();
+      await _updateMacOSDisplay();
+      await _updateMacOSMenuItems();
     }
   }
 
@@ -62,6 +92,7 @@ class TimerCubit extends Cubit<TimerState> {
       state.copyWith(status: TimerStatus.idle, remainingSeconds: duration * 60),
     );
     _updateMacOSDisplay();
+    _updateMacOSMenuItems();
   }
 
   void skipSession() {
@@ -80,6 +111,11 @@ class TimerCubit extends Cubit<TimerState> {
   }
 
   Future<void> _updateMacOSDisplay() async {
+    // Don't update if paused - let pause display remain
+    if (state.status == TimerStatus.paused) {
+      return;
+    }
+
     final timeString = getFormattedTime();
     final statusEmoji = _getStatusEmoji();
 
@@ -148,6 +184,7 @@ class TimerCubit extends Cubit<TimerState> {
 
     // Update macOS display with new session
     await _updateMacOSDisplay();
+    await _updateMacOSMenuItems();
   }
 
   SessionType _getNextSessionType() {
@@ -190,6 +227,23 @@ class TimerCubit extends Cubit<TimerState> {
     final minutes = state.remainingSeconds ~/ 60;
     final seconds = state.remainingSeconds % 60;
     return '${minutes.toString().padLeft(2, '0')}:${seconds.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _updateMacOSDisplayForPause() async {
+    // Show pause symbols in menu bar and dock badge
+    await _macosService.updateMenuBarForPause();
+  }
+
+  Future<void> _updateMacOSMenuItems() async {
+    final isRunning =
+        state.status == TimerStatus.running ||
+        state.status == TimerStatus.paused;
+    final isPaused = state.status == TimerStatus.paused;
+
+    await _macosService.updateMenuItems(
+      isRunning: isRunning,
+      isPaused: isPaused,
+    );
   }
 
   @override
