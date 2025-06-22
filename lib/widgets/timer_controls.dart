@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
-import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
 
@@ -17,29 +15,39 @@ class TimerControls extends StatelessWidget {
           children: [
             // Reset button
             _buildControlButton(
-              onPressed: () => context.read<TimerCubit>().resetTimer(),
               icon: Icons.refresh,
-              backgroundColor: Colors.white.withOpacity(0.1),
-              foregroundColor: Colors.white,
+              onPressed: () => context.read<TimerCubit>().resetTimer(),
+              size: 60,
+              backgroundColor: Colors.white.withOpacity(0.2),
             ),
 
             const SizedBox(width: 20),
 
             // Main play/pause button
-            _buildMainButton(
-              onPressed: _getMainButtonAction(context, state),
-              icon: _getMainButtonIcon(state.status),
-              text: _getMainButtonText(state.status, context),
+            _buildControlButton(
+              icon: state.status == TimerStatus.running
+                  ? Icons.pause
+                  : Icons.play_arrow,
+              onPressed: () {
+                if (state.status == TimerStatus.running) {
+                  context.read<TimerCubit>().pauseTimer();
+                } else {
+                  context.read<TimerCubit>().startTimer();
+                }
+              },
+              size: 120,
+              backgroundColor: Colors.white,
+              iconColor: const Color(0xFF2E7D9A),
             ),
 
             const SizedBox(width: 20),
 
             // Skip button
             _buildControlButton(
-              onPressed: () => context.read<TimerCubit>().skipSession(),
               icon: Icons.skip_next,
-              backgroundColor: Colors.white.withOpacity(0.1),
-              foregroundColor: Colors.white,
+              onPressed: () => context.read<TimerCubit>().skipSession(),
+              size: 60,
+              backgroundColor: Colors.white.withOpacity(0.2),
             ),
           ],
         );
@@ -47,98 +55,26 @@ class TimerControls extends StatelessWidget {
     );
   }
 
-  Widget _buildMainButton({
-    required VoidCallback onPressed,
-    required IconData icon,
-    required String text,
-  }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 120,
-        height: 120,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.2),
-              blurRadius: 8,
-              offset: const Offset(0, 4),
-            ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 36, color: const Color(0xFF2E7D9A)),
-            const SizedBox(height: 4),
-            Text(
-              text,
-              style: GoogleFonts.inter(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: const Color(0xFF2E7D9A),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
   Widget _buildControlButton({
-    required VoidCallback onPressed,
     required IconData icon,
+    required VoidCallback onPressed,
+    required double size,
     required Color backgroundColor,
-    required Color foregroundColor,
+    Color? iconColor,
   }) {
-    return GestureDetector(
-      onTap: onPressed,
-      child: Container(
-        width: 60,
-        height: 60,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: backgroundColor,
-          border: Border.all(color: foregroundColor.withOpacity(0.3), width: 1),
+    return SizedBox(
+      width: size,
+      height: size,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: backgroundColor,
+          shape: const CircleBorder(),
+          padding: EdgeInsets.zero,
+          elevation: 0,
         ),
-        child: Icon(icon, size: 24, color: foregroundColor),
+        child: Icon(icon, size: size * 0.4, color: iconColor ?? Colors.white),
       ),
     );
-  }
-
-  VoidCallback _getMainButtonAction(BuildContext context, TimerState state) {
-    switch (state.status) {
-      case TimerStatus.idle:
-      case TimerStatus.paused:
-        return () => context.read<TimerCubit>().startTimer();
-      case TimerStatus.running:
-        return () => context.read<TimerCubit>().pauseTimer();
-      case TimerStatus.completed:
-        return () => context.read<TimerCubit>().resetTimer();
-    }
-  }
-
-  IconData _getMainButtonIcon(TimerStatus status) {
-    switch (status) {
-      case TimerStatus.idle:
-      case TimerStatus.paused:
-        return Icons.play_arrow;
-      case TimerStatus.running:
-        return Icons.pause;
-      case TimerStatus.completed:
-        return Icons.refresh;
-    }
-  }
-
-  String _getMainButtonText(TimerStatus status, BuildContext context) {
-    final l10n = AppLocalizations.of(context)!;
-    return switch (status) {
-      TimerStatus.idle => l10n.start,
-      TimerStatus.paused => l10n.resume,
-      TimerStatus.running => l10n.pause,
-      TimerStatus.completed => l10n.reset,
-    };
   }
 }

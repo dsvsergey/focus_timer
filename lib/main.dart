@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'l10n/app_localizations.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'core/injection.dart';
 import 'cubit/timer_cubit.dart';
 import 'screens/timer_screen.dart';
@@ -28,14 +27,7 @@ class FocusTimerApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
       supportedLocales: const [Locale('en'), Locale('uk')],
-      theme: ThemeData(
-        fontFamily: GoogleFonts.inter().fontFamily,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2E7D9A),
-          brightness: Brightness.light,
-        ),
-        useMaterial3: true,
-      ),
+      theme: ThemeData(primarySwatch: Colors.blue, fontFamily: 'Inter'),
       home: BlocProvider(
         create: (context) => getIt<TimerCubit>()..initialize(),
         child: const TimerScreen(),

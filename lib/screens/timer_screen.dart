@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:google_fonts/google_fonts.dart';
 import '../l10n/app_localizations.dart';
 import '../cubit/timer_cubit.dart';
 import '../models/timer_state.dart';
@@ -19,52 +18,55 @@ class TimerScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: _getBackgroundColor(state.currentSessionType),
           body: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(24.0),
-              child: Column(
-                children: [
-                  const SizedBox(height: 40),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(24.0),
+                child: Column(
+                  children: [
+                    const SizedBox(height: 20),
 
-                  // Session type title
-                  Text(
-                    context.read<TimerCubit>().getSessionTypeTitle(
-                      AppLocalizations.of(context)!.focus,
-                      AppLocalizations.of(context)!.shortBreak,
-                      AppLocalizations.of(context)!.longBreak,
+                    // Session type title
+                    Text(
+                      context.read<TimerCubit>().getSessionTypeTitle(
+                        AppLocalizations.of(context)!.focus,
+                        AppLocalizations.of(context)!.shortBreak,
+                        AppLocalizations.of(context)!.longBreak,
+                      ),
+                      style: const TextStyle(
+                        fontSize: 24,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'Inter',
+                        color: Colors.white,
+                      ),
                     ),
-                    style: GoogleFonts.inter(
-                      fontSize: 24,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
+
+                    const SizedBox(height: 40),
+
+                    // Timer display
+                    const TimerDisplay(),
+
+                    const SizedBox(height: 30),
+
+                    // Cycle progress
+                    const CycleProgress(),
+
+                    const SizedBox(height: 40),
+
+                    // Timer controls
+                    const TimerControls(),
+
+                    const SizedBox(height: 30),
+
+                    // Session stats
+                    _buildSessionStats(
+                      state,
+                      AppLocalizations.of(context)!.today,
+                      AppLocalizations.of(context)!.cycles,
                     ),
-                  ),
 
-                  const SizedBox(height: 60),
-
-                  // Timer display
-                  const Expanded(flex: 3, child: TimerDisplay()),
-
-                  const SizedBox(height: 40),
-
-                  // Cycle progress
-                  const CycleProgress(),
-
-                  const SizedBox(height: 60),
-
-                  // Timer controls
-                  const TimerControls(),
-
-                  const SizedBox(height: 40),
-
-                  // Session stats
-                  _buildSessionStats(
-                    state,
-                    AppLocalizations.of(context)!.today,
-                    AppLocalizations.of(context)!.cycles,
-                  ),
-
-                  const SizedBox(height: 20),
-                ],
+                    const SizedBox(height: 20),
+                  ],
+                ),
               ),
             ),
           ),
@@ -120,16 +122,18 @@ class TimerScreen extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           value,
-          style: GoogleFonts.inter(
+          style: const TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w600,
+            fontFamily: 'Inter',
             color: Colors.white,
           ),
         ),
         Text(
           label,
-          style: GoogleFonts.inter(
+          style: TextStyle(
             fontSize: 12,
+            fontFamily: 'Inter',
             color: Colors.white.withOpacity(0.8),
           ),
         ),

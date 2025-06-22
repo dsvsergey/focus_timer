@@ -17,9 +17,17 @@ class NotificationService {
       requestSoundPermission: true,
     );
 
+    // Add macOS settings
+    const macOSSettings = DarwinInitializationSettings(
+      requestAlertPermission: true,
+      requestBadgePermission: true,
+      requestSoundPermission: true,
+    );
+
     const initSettings = InitializationSettings(
       android: androidSettings,
       iOS: iosSettings,
+      macOS: macOSSettings,
     );
 
     await _plugin.initialize(initSettings);
@@ -58,9 +66,17 @@ class NotificationService {
       presentSound: true,
     );
 
+    // Add macOS notification details
+    const macOSDetails = DarwinNotificationDetails(
+      presentAlert: true,
+      presentBadge: true,
+      presentSound: true,
+    );
+
     const notificationDetails = NotificationDetails(
       android: androidDetails,
       iOS: iosDetails,
+      macOS: macOSDetails,
     );
 
     await _plugin.show(0, title, body, notificationDetails);
