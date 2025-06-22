@@ -201,10 +201,10 @@ class AppDelegate: FlutterAppDelegate {
   private func updateMenuBarForPause() {
     DispatchQueue.main.async {
       if let button = self.statusBarItem?.button {
-        button.title = "⏸️ ||"
+        button.title = "⏸️"
       }
       // Also update dock badge to show pause symbol
-      NSApp.dockTile.badgeLabel = "||"
+      NSApp.dockTile.badgeLabel = "⏸️"
       
       self.isTimerPaused = true
       self.pauseResumeMenuItem?.title = "Resume Timer"
