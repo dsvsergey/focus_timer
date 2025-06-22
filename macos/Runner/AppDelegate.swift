@@ -18,6 +18,16 @@ class AppDelegate: FlutterAppDelegate {
   }
 
   override func applicationDidFinishLaunching(_ notification: Notification) {
+    // Set window size and properties
+    if let window = mainFlutterWindow {
+      window.setContentSize(NSSize(width: 400, height: 600))
+      window.minSize = NSSize(width: 350, height: 550)
+      window.maxSize = NSSize(width: 500, height: 700)
+      window.center()
+      window.isRestorable = true
+      window.title = "Focus Timer"
+    }
+    
     let controller : FlutterViewController = mainFlutterWindow?.contentViewController as! FlutterViewController
     
     // Set up method channel for native macOS functionality

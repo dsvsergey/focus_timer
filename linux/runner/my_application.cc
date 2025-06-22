@@ -40,14 +40,24 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "focus_timer");
+    gtk_header_bar_set_title(header_bar, "Focus Timer");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "focus_timer");
+    gtk_window_set_title(window, "Focus Timer");
   }
 
-  gtk_window_set_default_size(window, 1280, 720);
+  gtk_window_set_default_size(window, 400, 600);
+  gtk_window_set_resizable(window, TRUE);
+  
+  // Set minimum and maximum window sizes
+  GdkGeometry geometry;
+  geometry.min_width = 350;
+  geometry.min_height = 550;
+  geometry.max_width = 500;
+  geometry.max_height = 700;
+  gtk_window_set_geometry_hints(window, NULL, &geometry, 
+                               (GdkWindowHints)(GDK_HINT_MIN_SIZE | GDK_HINT_MAX_SIZE));
   gtk_widget_show(GTK_WIDGET(window));
 
   g_autoptr(FlDartProject) project = fl_dart_project_new();
