@@ -1,0 +1,86 @@
+import 'dart:io';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart';
+import 'package:injectable/injectable.dart';
+
+@singleton
+class MacOSService {
+  static const _channel = MethodChannel('focus_timer/macos');
+
+  Future<void> initialize() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      // Initialize native macOS functionality
+      await _channel.invokeMethod('initialize');
+
+      if (kDebugMode) {
+        print('MacOS service initialized successfully');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('MacOS service initialization error: $e');
+      }
+    }
+  }
+
+  Future<void> updateDockBadge(String text) async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateDockBadge', {'text': text});
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating dock badge: $e');
+      }
+    }
+  }
+
+  Future<void> clearDockBadge() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('clearDockBadge');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error clearing dock badge: $e');
+      }
+    }
+  }
+
+  Future<void> showMenuBarIcon() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('showMenuBarIcon');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error showing menu bar icon: $e');
+      }
+    }
+  }
+
+  Future<void> hideMenuBarIcon() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('hideMenuBarIcon');
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error hiding menu bar icon: $e');
+      }
+    }
+  }
+
+  Future<void> updateMenuBarTitle(String title) async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateMenuBarTitle', {'title': title});
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating menu bar title: $e');
+      }
+    }
+  }
+}

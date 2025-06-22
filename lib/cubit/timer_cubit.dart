@@ -6,25 +6,36 @@ import '../models/timer_session.dart';
 import '../models/app_settings.dart';
 import '../repositories/database_repository.dart';
 import '../services/notification_service.dart';
+import '../services/macos_service.dart';
 
 @injectable
 class TimerCubit extends Cubit<TimerState> {
-  TimerCubit(this._databaseRepository, this._notificationService)
-    : super(const TimerState());
+  TimerCubit(
+    this._databaseRepository,
+    this._notificationService,
+    this._macosService,
+  ) : super(const TimerState());
 
   final DatabaseRepository _databaseRepository;
   final NotificationService _notificationService;
+  final MacOSService _macosService;
   Timer? _timer;
   AppSettings? _settings;
 
   Future<void> initialize() async {
     await _notificationService.initialize();
+    await _macosService.initialize();
+
     _settings = await _databaseRepository.getSettings();
 
     // Set initial timer duration based on settings
     emit(
       state.copyWith(remainingSeconds: (_settings?.focusDuration ?? 25) * 60),
     );
+
+    // Show menu bar icon and update with initial time
+    await _macosService.showMenuBarIcon();
+    await _updateMacOSDisplay();
   }
 
   void startTimer() {
@@ -32,6 +43,7 @@ class TimerCubit extends Cubit<TimerState> {
         state.status == TimerStatus.paused) {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
+      _updateMacOSDisplay();
     }
   }
 
@@ -39,6 +51,7 @@ class TimerCubit extends Cubit<TimerState> {
     if (state.status == TimerStatus.running) {
       _timer?.cancel();
       emit(state.copyWith(status: TimerStatus.paused));
+      _updateMacOSDisplay();
     }
   }
 
@@ -48,6 +61,7 @@ class TimerCubit extends Cubit<TimerState> {
     emit(
       state.copyWith(status: TimerStatus.idle, remainingSeconds: duration * 60),
     );
+    _updateMacOSDisplay();
   }
 
   void skipSession() {
@@ -58,10 +72,30 @@ class TimerCubit extends Cubit<TimerState> {
   void _onTick(Timer timer) {
     if (state.remainingSeconds > 0) {
       emit(state.copyWith(remainingSeconds: state.remainingSeconds - 1));
+      _updateMacOSDisplay();
     } else {
       _timer?.cancel();
       _onSessionComplete(completed: true);
     }
+  }
+
+  Future<void> _updateMacOSDisplay() async {
+    final timeString = getFormattedTime();
+    final statusEmoji = _getStatusEmoji();
+
+    // Update dock badge with time
+    await _macosService.updateDockBadge(timeString);
+
+    // Update menu bar with status and time
+    await _macosService.updateMenuBarTitle('$statusEmoji $timeString');
+  }
+
+  String _getStatusEmoji() {
+    return switch (state.currentSessionType) {
+      SessionType.focus => '🍅', // Tomato for Pomodoro
+      SessionType.shortBreak => '☕', // Coffee for short break
+      SessionType.longBreak => '🌱', // Plant for long break
+    };
   }
 
   Future<void> _onSessionComplete({required bool completed}) async {
@@ -111,6 +145,9 @@ class TimerCubit extends Cubit<TimerState> {
         totalFocusSessions: newTotalFocusSessions,
       ),
     );
+
+    // Update macOS display with new session
+    await _updateMacOSDisplay();
   }
 
   SessionType _getNextSessionType() {
@@ -158,6 +195,8 @@ class TimerCubit extends Cubit<TimerState> {
   @override
   Future<void> close() {
     _timer?.cancel();
+    _macosService.clearDockBadge();
+    _macosService.hideMenuBarIcon();
     return super.close();
   }
 }
