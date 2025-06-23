@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
@@ -30,10 +31,33 @@ class TimerCubit extends Cubit<TimerState> {
 
     _settings = await _databaseRepository.getSettings();
 
-    // Set initial timer duration based on settings
-    emit(
-      state.copyWith(remainingSeconds: (_settings?.focusDuration ?? 25) * 60),
-    );
+    // Try to restore previous state
+    final savedState = await _databaseRepository.getTimerState();
+    if (savedState != null) {
+      // Restore state from database
+      final status = savedState.wasRunning
+          ? TimerStatus
+                .paused // Don't auto-resume, let user start manually
+          : savedState.wasPaused
+          ? TimerStatus.paused
+          : TimerStatus.idle;
+
+      emit(
+        state.copyWith(
+          currentSessionType: savedState.currentSessionType,
+          remainingSeconds: savedState.remainingSeconds,
+          completedCycles: savedState.completedCycles,
+          currentCycleStep: savedState.currentCycleStep,
+          totalFocusSessions: savedState.totalFocusSessions,
+          status: status,
+        ),
+      );
+    } else {
+      // Set initial timer duration based on settings
+      emit(
+        state.copyWith(remainingSeconds: (_settings?.focusDuration ?? 25) * 60),
+      );
+    }
 
     // Set up method channel for macOS commands
     if (Platform.isMacOS) {
@@ -61,6 +85,7 @@ class TimerCubit extends Cubit<TimerState> {
         state.status == TimerStatus.paused) {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
+      _saveState();
       _updateMacOSDisplay();
       _updateMacOSMenuItems();
     }
@@ -70,6 +95,7 @@ class TimerCubit extends Cubit<TimerState> {
     if (state.status == TimerStatus.running) {
       _timer?.cancel();
       emit(state.copyWith(status: TimerStatus.paused));
+      _saveState();
       _updateMacOSDisplayForPause();
       _updateMacOSMenuItems();
     }
@@ -79,6 +105,7 @@ class TimerCubit extends Cubit<TimerState> {
     if (state.status == TimerStatus.paused) {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
+      _saveState();
       await _macosService.updateMenuBarForResume();
       await _updateMacOSDisplay();
       await _updateMacOSMenuItems();
@@ -91,6 +118,7 @@ class TimerCubit extends Cubit<TimerState> {
     emit(
       state.copyWith(status: TimerStatus.idle, remainingSeconds: duration * 60),
     );
+    _saveState();
     _updateMacOSDisplay();
     _updateMacOSMenuItems();
   }
@@ -182,6 +210,9 @@ class TimerCubit extends Cubit<TimerState> {
       ),
     );
 
+    // Save the updated state
+    await _saveState();
+
     // Update macOS display with new session
     await _updateMacOSDisplay();
     await _updateMacOSMenuItems();
@@ -246,9 +277,18 @@ class TimerCubit extends Cubit<TimerState> {
     );
   }
 
+  Future<void> _saveState() async {
+    try {
+      await _databaseRepository.saveTimerState(state);
+    } catch (e) {
+      debugPrint('Error saving timer state: $e');
+    }
+  }
+
   @override
   Future<void> close() {
     _timer?.cancel();
+    _saveState(); // Save state before closing
     _macosService.clearDockBadge();
     _macosService.hideMenuBarIcon();
     return super.close();

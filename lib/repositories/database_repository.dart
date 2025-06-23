@@ -3,6 +3,8 @@ import 'package:path_provider/path_provider.dart';
 import 'package:injectable/injectable.dart';
 import '../models/timer_session.dart';
 import '../models/app_settings.dart';
+import '../models/timer_state.dart';
+import '../models/timer_persistence.dart';
 
 @singleton
 class DatabaseRepository {
@@ -15,6 +17,7 @@ class DatabaseRepository {
     _isar = await Isar.open([
       TimerSessionSchema,
       AppSettingsSchema,
+      TimerPersistenceSchema,
     ], directory: dir.path);
     return _isar!;
   }
@@ -79,6 +82,36 @@ class DatabaseRepository {
     final db = await isar;
     await db.writeTxn(() async {
       await db.timerSessions.clear();
+    });
+  }
+
+  // Timer state persistence operations
+  Future<void> saveTimerState(TimerState state) async {
+    final db = await isar;
+    final persistence = TimerPersistence()
+      ..currentSessionType = state.currentSessionType
+      ..remainingSeconds = state.remainingSeconds
+      ..completedCycles = state.completedCycles
+      ..currentCycleStep = state.currentCycleStep
+      ..totalFocusSessions = state.totalFocusSessions
+      ..wasRunning = state.status == TimerStatus.running
+      ..wasPaused = state.status == TimerStatus.paused
+      ..lastSaveTime = DateTime.now();
+
+    await db.writeTxn(() async {
+      await db.timerPersistences.put(persistence);
+    });
+  }
+
+  Future<TimerPersistence?> getTimerState() async {
+    final db = await isar;
+    return await db.timerPersistences.get(1);
+  }
+
+  Future<void> clearTimerState() async {
+    final db = await isar;
+    await db.writeTxn(() async {
+      await db.timerPersistences.clear();
     });
   }
 }
