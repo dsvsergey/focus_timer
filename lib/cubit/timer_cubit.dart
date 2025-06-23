@@ -1,7 +1,8 @@
 import 'dart:async';
 import 'dart:io';
-import 'package:flutter/foundation.dart';
+
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:injectable/injectable.dart';
 import '../models/timer_state.dart';
@@ -12,7 +13,7 @@ import '../services/notification_service.dart';
 import '../services/macos_service.dart';
 
 @injectable
-class TimerCubit extends Cubit<TimerState> {
+class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
   TimerCubit(
     this._databaseRepository,
     this._notificationService,
@@ -24,10 +25,15 @@ class TimerCubit extends Cubit<TimerState> {
   final MacOSService _macosService;
   Timer? _timer;
   AppSettings? _settings;
+  DateTime? _backgroundTime;
+  bool _isInBackground = false;
 
   Future<void> initialize() async {
     await _notificationService.initialize();
     await _macosService.initialize();
+
+    // Register lifecycle observer
+    WidgetsBinding.instance.addObserver(this);
 
     _settings = await _databaseRepository.getSettings();
 
@@ -64,11 +70,22 @@ class TimerCubit extends Cubit<TimerState> {
       const channel = MethodChannel('focus_timer/macos');
       channel.setMethodCallHandler((call) async {
         switch (call.method) {
+          case 'startTimer':
+            startTimer();
+            break;
           case 'pauseTimer':
             pauseTimer();
             break;
           case 'resumeTimer':
             await resumeTimer();
+            break;
+          case 'nativeTimerCompleted':
+            // Handle timer completion from native side
+            _timer?.cancel();
+            if (Platform.isMacOS) {
+              await _macosService.stopNativeTimer();
+            }
+            await _onSessionComplete(completed: true);
             break;
         }
       });
@@ -86,6 +103,15 @@ class TimerCubit extends Cubit<TimerState> {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
       _saveState();
+
+      // Start native timer for background operation
+      if (Platform.isMacOS) {
+        _macosService.startNativeTimer(
+          remainingSeconds: state.remainingSeconds,
+          sessionType: state.currentSessionType.name,
+        );
+      }
+
       _updateMacOSDisplay();
       _updateMacOSMenuItems();
     }
@@ -94,6 +120,12 @@ class TimerCubit extends Cubit<TimerState> {
   void pauseTimer() {
     if (state.status == TimerStatus.running) {
       _timer?.cancel();
+
+      // Stop native timer
+      if (Platform.isMacOS) {
+        _macosService.stopNativeTimer();
+      }
+
       emit(state.copyWith(status: TimerStatus.paused));
       _saveState();
       _updateMacOSDisplayForPause();
@@ -106,6 +138,15 @@ class TimerCubit extends Cubit<TimerState> {
       _timer = Timer.periodic(const Duration(seconds: 1), _onTick);
       emit(state.copyWith(status: TimerStatus.running));
       _saveState();
+
+      // Restart native timer
+      if (Platform.isMacOS) {
+        await _macosService.startNativeTimer(
+          remainingSeconds: state.remainingSeconds,
+          sessionType: state.currentSessionType.name,
+        );
+      }
+
       await _macosService.updateMenuBarForResume();
       await _updateMacOSDisplay();
       await _updateMacOSMenuItems();
@@ -114,6 +155,12 @@ class TimerCubit extends Cubit<TimerState> {
 
   void resetTimer() {
     _timer?.cancel();
+
+    // Stop native timer
+    if (Platform.isMacOS) {
+      _macosService.stopNativeTimer();
+    }
+
     final duration = _getDurationForSessionType(state.currentSessionType);
     emit(
       state.copyWith(status: TimerStatus.idle, remainingSeconds: duration * 60),
@@ -130,10 +177,23 @@ class TimerCubit extends Cubit<TimerState> {
 
   void _onTick(Timer timer) {
     if (state.remainingSeconds > 0) {
-      emit(state.copyWith(remainingSeconds: state.remainingSeconds - 1));
+      final newRemainingSeconds = state.remainingSeconds - 1;
+      emit(state.copyWith(remainingSeconds: newRemainingSeconds));
+
+      // Update native timer
+      if (Platform.isMacOS) {
+        _macosService.updateNativeTimer(
+          remainingSeconds: newRemainingSeconds,
+          sessionType: state.currentSessionType.name,
+        );
+      }
+
       _updateMacOSDisplay();
     } else {
       _timer?.cancel();
+      if (Platform.isMacOS) {
+        _macosService.stopNativeTimer();
+      }
       _onSessionComplete(completed: true);
     }
   }
@@ -147,11 +207,15 @@ class TimerCubit extends Cubit<TimerState> {
     final timeString = getFormattedTime();
     final statusEmoji = _getStatusEmoji();
 
-    // Update dock badge with time
-    await _macosService.updateDockBadge(timeString);
+    try {
+      // Update dock badge with time (works even in background)
+      await _macosService.updateDockBadge(timeString);
 
-    // Update menu bar with status and time
-    await _macosService.updateMenuBarTitle('$statusEmoji $timeString');
+      // Update menu bar with status and time (works even in background)
+      await _macosService.updateMenuBarTitle('$statusEmoji $timeString');
+    } catch (e) {
+      debugPrint('Error updating macOS display: $e');
+    }
   }
 
   String _getStatusEmoji() {
@@ -216,6 +280,11 @@ class TimerCubit extends Cubit<TimerState> {
     // Update macOS display with new session
     await _updateMacOSDisplay();
     await _updateMacOSMenuItems();
+
+    // Ensure native timer is stopped after session completion
+    if (Platform.isMacOS) {
+      await _macosService.stopNativeTimer();
+    }
   }
 
   SessionType _getNextSessionType() {
@@ -266,15 +335,70 @@ class TimerCubit extends Cubit<TimerState> {
   }
 
   Future<void> _updateMacOSMenuItems() async {
-    final isRunning =
-        state.status == TimerStatus.running ||
-        state.status == TimerStatus.paused;
+    final isRunning = state.status == TimerStatus.running;
     final isPaused = state.status == TimerStatus.paused;
 
+    // Only consider timer "running" if it's actually running or paused
+    // Idle state should show "Start Timer" not "Pause Timer"
+    final menuIsRunning = isRunning || isPaused;
+
     await _macosService.updateMenuItems(
-      isRunning: isRunning,
+      isRunning: menuIsRunning,
       isPaused: isPaused,
     );
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      // App going to background
+      _isInBackground = true;
+      _backgroundTime = DateTime.now();
+      debugPrint('App went to background at: $_backgroundTime');
+    } else if (state == AppLifecycleState.resumed) {
+      // App coming to foreground
+      _isInBackground = false;
+      if (_backgroundTime != null && this.state.status == TimerStatus.running) {
+        _handleBackgroundTime();
+      }
+
+      // Force sync menu state
+      Future.microtask(() async {
+        await _updateMacOSMenuItems();
+      });
+
+      debugPrint('App resumed from background');
+    }
+  }
+
+  void _handleBackgroundTime() {
+    if (_backgroundTime == null) return;
+
+    final backgroundDuration = DateTime.now().difference(_backgroundTime!);
+    final backgroundSeconds = backgroundDuration.inSeconds;
+
+    debugPrint('App was in background for $backgroundSeconds seconds');
+
+    if (backgroundSeconds > 0 && state.status == TimerStatus.running) {
+      final newRemainingSeconds = (state.remainingSeconds - backgroundSeconds)
+          .clamp(0, double.infinity)
+          .toInt();
+
+      if (newRemainingSeconds <= 0) {
+        // Timer should have completed while in background
+        _timer?.cancel();
+        _onSessionComplete(completed: true);
+      } else {
+        // Update remaining time
+        emit(state.copyWith(remainingSeconds: newRemainingSeconds));
+        _updateMacOSDisplay();
+      }
+    }
+
+    _backgroundTime = null;
   }
 
   Future<void> _saveState() async {
@@ -289,6 +413,7 @@ class TimerCubit extends Cubit<TimerState> {
   Future<void> close() {
     _timer?.cancel();
     _saveState(); // Save state before closing
+    WidgetsBinding.instance.removeObserver(this); // Remove lifecycle observer
     _macosService.clearDockBadge();
     _macosService.hideMenuBarIcon();
     return super.close();

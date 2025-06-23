@@ -2,12 +2,15 @@ import Cocoa
 import FlutterMacOS
 
 @main
-class AppDelegate: FlutterAppDelegate {
+class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
   private var statusBarItem: NSStatusItem?
   private var menuBarTimer: Timer?
   private var pauseResumeMenuItem: NSMenuItem?
   private var isTimerRunning = false
   private var isTimerPaused = false
+  private var nativeTimer: Timer?
+  private var currentRemainingSeconds = 0
+  private var currentSessionType = "focus"
   
   override func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
     return false // Keep app running when window is closed
@@ -34,6 +37,9 @@ class AppDelegate: FlutterAppDelegate {
       // Keep close button but hide other standard buttons
       window.standardWindowButton(.miniaturizeButton)?.isHidden = true
       window.standardWindowButton(.zoomButton)?.isHidden = true
+      
+      // Set up window delegate for close animation
+      window.delegate = self
     }
     
     let controller : FlutterViewController = mainFlutterWindow?.contentViewController as! FlutterViewController
@@ -95,6 +101,30 @@ class AppDelegate: FlutterAppDelegate {
           result(nil)
         } else {
           result(FlutterError(code: "INVALID_ARGUMENT", message: "isRunning and isPaused required", details: nil))
+        }
+        
+      case "startNativeTimer":
+        if let args = call.arguments as? [String: Any],
+           let remainingSeconds = args["remainingSeconds"] as? Int,
+           let sessionType = args["sessionType"] as? String {
+          self.startNativeTimer(remainingSeconds: remainingSeconds, sessionType: sessionType)
+          result(nil)
+        } else {
+          result(FlutterError(code: "INVALID_ARGUMENT", message: "remainingSeconds and sessionType required", details: nil))
+        }
+        
+      case "stopNativeTimer":
+        self.stopNativeTimer()
+        result(nil)
+        
+      case "updateNativeTimer":
+        if let args = call.arguments as? [String: Any],
+           let remainingSeconds = args["remainingSeconds"] as? Int,
+           let sessionType = args["sessionType"] as? String {
+          self.updateNativeTimer(remainingSeconds: remainingSeconds, sessionType: sessionType)
+          result(nil)
+        } else {
+          result(FlutterError(code: "INVALID_ARGUMENT", message: "remainingSeconds and sessionType required", details: nil))
         }
         
       default:
@@ -187,13 +217,23 @@ class AppDelegate: FlutterAppDelegate {
   }
   
   @objc private func statusBarButtonClicked() {
-    showMainWindow()
+    if let window = mainFlutterWindow, window.isVisible {
+      // If window is visible, hide it with animation
+      hideWindowWithAnimation(window)
+    } else {
+      // If window is hidden, show it with animation
+      showMainWindow()
+    }
   }
   
   @objc private func showMainWindow() {
     NSApp.activate(ignoringOtherApps: true)
     if let window = mainFlutterWindow {
-      window.makeKeyAndOrderFront(nil)
+      // Position window on the same screen as the menu bar
+      positionWindowOnMenuScreen(window)
+      
+      // Show window with animation
+      showWindowWithAnimation(window)
     }
   }
   
@@ -206,9 +246,14 @@ class AppDelegate: FlutterAppDelegate {
     if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
       let channel = FlutterMethodChannel(name: "focus_timer/macos", binaryMessenger: controller.engine.binaryMessenger)
       
-      if isTimerPaused {
+      if !isTimerRunning {
+        // Timer is idle - start it
+        channel.invokeMethod("startTimer", arguments: nil)
+      } else if isTimerPaused {
+        // Timer is paused - resume it
         channel.invokeMethod("resumeTimer", arguments: nil)
       } else {
+        // Timer is running - pause it
         channel.invokeMethod("pauseTimer", arguments: nil)
       }
     }
@@ -245,12 +290,190 @@ class AppDelegate: FlutterAppDelegate {
       // Enable/disable pause button based on timer state
       self.pauseResumeMenuItem?.isEnabled = isRunning
       
-      // Update menu item title
-      if isPaused {
+      // Update menu item title based on exact state
+      if !isRunning {
+        // Timer is idle - show start option
+        self.pauseResumeMenuItem?.title = "Start Timer"
+      } else if isPaused {
+        // Timer is paused - show resume option
         self.pauseResumeMenuItem?.title = "Resume Timer"
       } else {
+        // Timer is running - show pause option
         self.pauseResumeMenuItem?.title = "Pause Timer"
       }
     }
+  }
+  
+  // MARK: - Native Timer Methods
+  
+  private func startNativeTimer(remainingSeconds: Int, sessionType: String) {
+    stopNativeTimer() // Stop any existing timer
+    
+    currentRemainingSeconds = remainingSeconds
+    currentSessionType = sessionType
+    
+    nativeTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+      self?.handleNativeTimerTick()
+    }
+    
+    // Update display immediately
+    updateNativeDisplay()
+  }
+  
+  private func stopNativeTimer() {
+    nativeTimer?.invalidate()
+    nativeTimer = nil
+  }
+  
+  private func updateNativeTimer(remainingSeconds: Int, sessionType: String) {
+    currentRemainingSeconds = remainingSeconds
+    currentSessionType = sessionType
+    updateNativeDisplay()
+  }
+  
+  private func handleNativeTimerTick() {
+    guard currentRemainingSeconds > 0 else {
+      stopNativeTimer()
+      // Update menu state when timer stops
+      updateMenuItems(isRunning: false, isPaused: false)
+      return
+    }
+    
+    currentRemainingSeconds -= 1
+    updateNativeDisplay()
+    
+    if currentRemainingSeconds <= 0 {
+      stopNativeTimer()
+      // Update menu state to show timer is not running
+      updateMenuItems(isRunning: false, isPaused: false)
+      
+      // Notify Flutter that timer completed
+      if let controller = mainFlutterWindow?.contentViewController as? FlutterViewController {
+        let channel = FlutterMethodChannel(name: "focus_timer/macos", binaryMessenger: controller.engine.binaryMessenger)
+        channel.invokeMethod("nativeTimerCompleted", arguments: nil)
+      }
+    }
+  }
+  
+  private func updateNativeDisplay() {
+    let minutes = currentRemainingSeconds / 60
+    let seconds = currentRemainingSeconds % 60
+    let timeString = String(format: "%02d:%02d", minutes, seconds)
+    
+    let emoji = getEmojiForSessionType(currentSessionType)
+    
+    DispatchQueue.main.async {
+      // Update dock badge
+      NSApp.dockTile.badgeLabel = timeString
+      
+      // Update menu bar
+      if let button = self.statusBarItem?.button {
+        button.title = "\(emoji) \(timeString)"
+      }
+    }
+  }
+  
+  private func getEmojiForSessionType(_ sessionType: String) -> String {
+    switch sessionType.lowercased() {
+    case "focus":
+      return "🍅"
+    case "shortbreak":
+      return "☕"
+    case "longbreak":
+      return "🌱"
+    default:
+      return "🍅"
+    }
+  }
+  
+  // MARK: - Window Positioning and Animation
+  
+  private func positionWindowOnMenuScreen(_ window: NSWindow) {
+    // Get the screen where the menu bar is located
+    var targetScreen: NSScreen?
+    
+    // Try to get screen from status bar button
+    if let button = statusBarItem?.button,
+       let buttonWindow = button.window,
+       let screen = buttonWindow.screen {
+      targetScreen = screen
+    } else {
+      // Fallback to main screen
+      targetScreen = NSScreen.main
+    }
+    
+    guard let screen = targetScreen else { return }
+    
+    // Calculate center position on the target screen
+    let screenFrame = screen.visibleFrame
+    let windowSize = window.frame.size
+    
+    let centerX = screenFrame.midX - windowSize.width / 2
+    let centerY = screenFrame.midY - windowSize.height / 2
+    
+    // Position the window
+    window.setFrameOrigin(NSPoint(x: centerX, y: centerY))
+  }
+  
+  private func showWindowWithAnimation(_ window: NSWindow) {
+    // Start with window slightly smaller and transparent
+    let originalFrame = window.frame
+    let originalAlpha = window.alphaValue
+    
+    // Set initial animation state
+    window.alphaValue = 0.0
+    window.setFrame(NSRect(
+      x: originalFrame.origin.x + 20,
+      y: originalFrame.origin.y + 20,
+      width: originalFrame.size.width - 40,
+      height: originalFrame.size.height - 40
+    ), display: false)
+    
+    // Make window visible but transparent
+    window.makeKeyAndOrderFront(nil)
+    
+    // Animate to final state
+    NSAnimationContext.runAnimationGroup({ context in
+      context.duration = 0.3
+      context.timingFunction = CAMediaTimingFunction(name: .easeOut)
+      
+      window.animator().alphaValue = originalAlpha
+      window.animator().setFrame(originalFrame, display: true)
+         }, completionHandler: {
+       // Animation completed
+     })
+   }
+  
+  // MARK: - NSWindowDelegate
+  
+  func windowShouldClose(_ sender: NSWindow) -> Bool {
+    // Don't close immediately, animate first
+    hideWindowWithAnimation(sender)
+    return false
+  }
+  
+  private func hideWindowWithAnimation(_ window: NSWindow) {
+    let originalFrame = window.frame
+    
+    NSAnimationContext.runAnimationGroup({ context in
+      context.duration = 0.2
+      context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+      
+      // Animate to smaller size and fade out
+      window.animator().alphaValue = 0.0
+      window.animator().setFrame(NSRect(
+        x: originalFrame.origin.x + 20,
+        y: originalFrame.origin.y + 20,
+        width: originalFrame.size.width - 40,
+        height: originalFrame.size.height - 40
+      ), display: true)
+    }, completionHandler: {
+      // Hide window after animation
+      window.orderOut(nil)
+      
+      // Reset window properties for next show
+      window.alphaValue = 1.0
+      window.setFrame(originalFrame, display: false)
+    })
   }
 }

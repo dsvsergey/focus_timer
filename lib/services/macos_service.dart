@@ -6,6 +6,7 @@ import 'package:injectable/injectable.dart';
 @singleton
 class MacOSService {
   static const _channel = MethodChannel('focus_timer/macos');
+  bool _nativeTimerActive = false;
 
   Future<void> initialize() async {
     if (!Platform.isMacOS) return;
@@ -125,4 +126,57 @@ class MacOSService {
       }
     }
   }
+
+  // Native timer methods for background operation
+  Future<void> startNativeTimer({
+    required int remainingSeconds,
+    required String sessionType,
+  }) async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('startNativeTimer', {
+        'remainingSeconds': remainingSeconds,
+        'sessionType': sessionType,
+      });
+      _nativeTimerActive = true;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error starting native timer: $e');
+      }
+    }
+  }
+
+  Future<void> stopNativeTimer() async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('stopNativeTimer');
+      _nativeTimerActive = false;
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error stopping native timer: $e');
+      }
+    }
+  }
+
+  Future<void> updateNativeTimer({
+    required int remainingSeconds,
+    required String sessionType,
+  }) async {
+    if (!Platform.isMacOS) return;
+
+    try {
+      await _channel.invokeMethod('updateNativeTimer', {
+        'remainingSeconds': remainingSeconds,
+        'sessionType': sessionType,
+      });
+    } catch (e) {
+      if (kDebugMode) {
+        print('Error updating native timer: $e');
+      }
+    }
+  }
+
+  bool get isNativeTimerActive => _nativeTimerActive;
 }
