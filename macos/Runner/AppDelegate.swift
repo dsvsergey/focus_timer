@@ -391,12 +391,16 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
   private func positionWindowOnMenuScreen(_ window: NSWindow) {
     // Get the screen where the menu bar is located
     var targetScreen: NSScreen?
+    var buttonFrame: NSRect?
     
-    // Try to get screen from status bar button
+    // Try to get screen and button position from status bar button
     if let button = statusBarItem?.button,
        let buttonWindow = button.window,
        let screen = buttonWindow.screen {
       targetScreen = screen
+      // Get button frame in screen coordinates
+      buttonFrame = button.convert(button.bounds, to: nil)
+      buttonFrame = buttonWindow.convertToScreen(buttonFrame!)
     } else {
       // Fallback to main screen
       targetScreen = NSScreen.main
@@ -404,45 +408,55 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
     
     guard let screen = targetScreen else { return }
     
-    // Calculate center position on the target screen
     let screenFrame = screen.visibleFrame
     let windowSize = window.frame.size
     
-    let centerX = screenFrame.midX - windowSize.width / 2
-    let centerY = screenFrame.midY - windowSize.height / 2
+    // Position window under menu bar, aligned to the right edge of screen
+    let rightX = screenFrame.maxX - windowSize.width - 10 // 10px margin from right edge
+    var topY = screenFrame.maxY - windowSize.height - 10 // 10px below menu bar
+    
+    // If we have button position, position under the button
+    if let buttonRect = buttonFrame {
+      topY = buttonRect.minY - windowSize.height - 10 // 10px below button
+    }
+    
+    // Ensure window doesn't go off screen
+    let finalX = max(screenFrame.minX + 10, rightX)
+    let finalY = max(screenFrame.minY + 10, topY)
     
     // Position the window
-    window.setFrameOrigin(NSPoint(x: centerX, y: centerY))
+    window.setFrameOrigin(NSPoint(x: finalX, y: finalY))
   }
   
-  private func showWindowWithAnimation(_ window: NSWindow) {
-    // Start with window slightly smaller and transparent
+    private func showWindowWithAnimation(_ window: NSWindow) {
+    // Start with window at smaller height (dropdown effect) and transparent
     let originalFrame = window.frame
     let originalAlpha = window.alphaValue
     
-    // Set initial animation state
+    // Set initial animation state - start from top with smaller height
     window.alphaValue = 0.0
-    window.setFrame(NSRect(
-      x: originalFrame.origin.x + 20,
-      y: originalFrame.origin.y + 20,
-      width: originalFrame.size.width - 40,
-      height: originalFrame.size.height - 40
-    ), display: false)
+    let initialFrame = NSRect(
+      x: originalFrame.origin.x,
+      y: originalFrame.origin.y + originalFrame.size.height * 0.8, // Start higher
+      width: originalFrame.size.width,
+      height: originalFrame.size.height * 0.2 // Start with small height
+    )
+    window.setFrame(initialFrame, display: false)
     
     // Make window visible but transparent
     window.makeKeyAndOrderFront(nil)
     
-    // Animate to final state
+    // Animate to final state with dropdown effect
     NSAnimationContext.runAnimationGroup({ context in
-      context.duration = 0.3
+      context.duration = 0.25
       context.timingFunction = CAMediaTimingFunction(name: .easeOut)
       
       window.animator().alphaValue = originalAlpha
       window.animator().setFrame(originalFrame, display: true)
-         }, completionHandler: {
-       // Animation completed
-     })
-   }
+    }, completionHandler: {
+      // Animation completed
+    })
+  }
   
   // MARK: - NSWindowDelegate
   
@@ -456,16 +470,16 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
     let originalFrame = window.frame
     
     NSAnimationContext.runAnimationGroup({ context in
-      context.duration = 0.2
+      context.duration = 0.15
       context.timingFunction = CAMediaTimingFunction(name: .easeIn)
       
-      // Animate to smaller size and fade out
+      // Animate to collapse upward (reverse dropdown) and fade out
       window.animator().alphaValue = 0.0
       window.animator().setFrame(NSRect(
-        x: originalFrame.origin.x + 20,
-        y: originalFrame.origin.y + 20,
-        width: originalFrame.size.width - 40,
-        height: originalFrame.size.height - 40
+        x: originalFrame.origin.x,
+        y: originalFrame.origin.y + originalFrame.size.height * 0.8, // Collapse upward
+        width: originalFrame.size.width,
+        height: originalFrame.size.height * 0.2 // Shrink height
       ), display: true)
     }, completionHandler: {
       // Hide window after animation
