@@ -12,7 +12,7 @@ class TimerSession with _$TimerSession {
   const factory TimerSession({
     Id? id,
     required DateTime date,
-    required SessionType type,
+    @Enumerated(EnumType.name) required SessionType type,
     required int duration, // duration in minutes
     required bool completed,
   }) = _TimerSession;

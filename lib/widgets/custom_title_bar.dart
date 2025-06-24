@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'window_controls.dart';
 
 class CustomTitleBar extends StatelessWidget {
   final String title;
@@ -77,8 +78,17 @@ class CustomTitleBar extends StatelessWidget {
             ),
           ),
 
-          // Close button (for Windows and Linux, macOS handles this natively)
-          if (Platform.isWindows || Platform.isLinux) _buildCloseButton(),
+          // Window controls and close button
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Custom window controls (minimize to tray)
+              const WindowControls(),
+
+              // Close button (for Windows and Linux, macOS handles this natively)
+              if (Platform.isWindows || Platform.isLinux) _buildCloseButton(),
+            ],
+          ),
         ],
       ),
     );
