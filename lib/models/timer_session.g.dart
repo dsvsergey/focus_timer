@@ -40,7 +40,7 @@ const TimerSessionSchema = CollectionSchema(
     r'type': PropertySchema(
       id: 4,
       name: r'type',
-      type: IsarType.byte,
+      type: IsarType.string,
       enumMap: _TimerSessiontypeEnumValueMap,
     )
   },
@@ -64,6 +64,7 @@ int _timerSessionEstimateSize(
   Map<Type, List<int>> allOffsets,
 ) {
   var bytesCount = offsets.last;
+  bytesCount += 3 + object.type.name.length * 3;
   return bytesCount;
 }
 
@@ -77,7 +78,7 @@ void _timerSessionSerialize(
   writer.writeDateTime(offsets[1], object.date);
   writer.writeLong(offsets[2], object.duration);
   writer.writeLong(offsets[3], object.id);
-  writer.writeByte(offsets[4], object.type.index);
+  writer.writeString(offsets[4], object.type.name);
 }
 
 TimerSession _timerSessionDeserialize(
@@ -91,7 +92,7 @@ TimerSession _timerSessionDeserialize(
     date: reader.readDateTime(offsets[1]),
     duration: reader.readLong(offsets[2]),
     id: reader.readLongOrNull(offsets[3]),
-    type: _TimerSessiontypeValueEnumMap[reader.readByteOrNull(offsets[4])] ??
+    type: _TimerSessiontypeValueEnumMap[reader.readStringOrNull(offsets[4])] ??
         SessionType.focus,
   );
   return object;
@@ -113,7 +114,7 @@ P _timerSessionDeserializeProp<P>(
     case 3:
       return (reader.readLongOrNull(offset)) as P;
     case 4:
-      return (_TimerSessiontypeValueEnumMap[reader.readByteOrNull(offset)] ??
+      return (_TimerSessiontypeValueEnumMap[reader.readStringOrNull(offset)] ??
           SessionType.focus) as P;
     default:
       throw IsarError('Unknown property with id $propertyId');
@@ -121,14 +122,14 @@ P _timerSessionDeserializeProp<P>(
 }
 
 const _TimerSessiontypeEnumValueMap = {
-  'focus': 0,
-  'shortBreak': 1,
-  'longBreak': 2,
+  r'focus': r'focus',
+  r'shortBreak': r'shortBreak',
+  r'longBreak': r'longBreak',
 };
 const _TimerSessiontypeValueEnumMap = {
-  0: SessionType.focus,
-  1: SessionType.shortBreak,
-  2: SessionType.longBreak,
+  r'focus': SessionType.focus,
+  r'shortBreak': SessionType.shortBreak,
+  r'longBreak': SessionType.longBreak,
 };
 
 Id _timerSessionGetId(TimerSession object) {
@@ -471,11 +472,14 @@ extension TimerSessionQueryFilter
   }
 
   QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition> typeEqualTo(
-      SessionType value) {
+    SessionType value, {
+    bool caseSensitive = true,
+  }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.equalTo(
         property: r'type',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -484,12 +488,14 @@ extension TimerSessionQueryFilter
       typeGreaterThan(
     SessionType value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.greaterThan(
         include: include,
         property: r'type',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -497,12 +503,14 @@ extension TimerSessionQueryFilter
   QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition> typeLessThan(
     SessionType value, {
     bool include = false,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.lessThan(
         include: include,
         property: r'type',
         value: value,
+        caseSensitive: caseSensitive,
       ));
     });
   }
@@ -512,6 +520,7 @@ extension TimerSessionQueryFilter
     SessionType upper, {
     bool includeLower = true,
     bool includeUpper = true,
+    bool caseSensitive = true,
   }) {
     return QueryBuilder.apply(this, (query) {
       return query.addFilterCondition(FilterCondition.between(
@@ -520,6 +529,78 @@ extension TimerSessionQueryFilter
         includeLower: includeLower,
         upper: upper,
         includeUpper: includeUpper,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition>
+      typeStartsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.startsWith(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition> typeEndsWith(
+    String value, {
+    bool caseSensitive = true,
+  }) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.endsWith(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition> typeContains(
+      String value,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.contains(
+        property: r'type',
+        value: value,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition> typeMatches(
+      String pattern,
+      {bool caseSensitive = true}) {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.matches(
+        property: r'type',
+        wildcard: pattern,
+        caseSensitive: caseSensitive,
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition>
+      typeIsEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.equalTo(
+        property: r'type',
+        value: '',
+      ));
+    });
+  }
+
+  QueryBuilder<TimerSession, TimerSession, QAfterFilterCondition>
+      typeIsNotEmpty() {
+    return QueryBuilder.apply(this, (query) {
+      return query.addFilterCondition(FilterCondition.greaterThan(
+        property: r'type',
+        value: '',
       ));
     });
   }
@@ -695,9 +776,10 @@ extension TimerSessionQueryWhereDistinct
     });
   }
 
-  QueryBuilder<TimerSession, TimerSession, QDistinct> distinctByType() {
+  QueryBuilder<TimerSession, TimerSession, QDistinct> distinctByType(
+      {bool caseSensitive = true}) {
     return QueryBuilder.apply(this, (query) {
-      return query.addDistinctBy(r'type');
+      return query.addDistinctBy(r'type', caseSensitive: caseSensitive);
     });
   }
 }

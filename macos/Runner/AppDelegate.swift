@@ -127,6 +127,18 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
           result(FlutterError(code: "INVALID_ARGUMENT", message: "remainingSeconds and sessionType required", details: nil))
         }
         
+      case "showMainWindow":
+        self.showWindowOnCurrentDesktop()
+        result(nil)
+        
+      case "hideWindow":
+        if let window = self.mainFlutterWindow {
+          self.hideWindowWithAnimation(window)
+          result(nil)
+        } else {
+          result(FlutterError(code: "NO_WINDOW", message: "Main window not found", details: nil))
+        }
+        
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -221,19 +233,55 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
       // If window is visible, hide it with animation
       hideWindowWithAnimation(window)
     } else {
-      // If window is hidden, show it with animation
-      showMainWindow()
+      // If window is hidden, show it on current active desktop
+      showWindowOnCurrentDesktop()
+    }
+  }
+  
+  private func showWindowOnCurrentDesktop() {
+    NSApp.activate(ignoringOtherApps: true)
+    if let window = mainFlutterWindow {
+      // Temporarily allow window to appear on all spaces
+      window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+      
+      // Position window on the current active screen
+      positionWindowOnActiveScreen(window)
+      
+      // Force show on current space
+      window.orderFrontRegardless()
+      window.makeKeyAndOrderFront(nil)
+      
+      // Show window with animation
+      showWindowWithAnimation(window)
+      
+      // Reset collection behavior after a short delay
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        window.collectionBehavior = [.fullScreenAuxiliary]
+      }
+      
+      print("Forced window to appear on current desktop space")
     }
   }
   
   @objc private func showMainWindow() {
     NSApp.activate(ignoringOtherApps: true)
     if let window = mainFlutterWindow {
-      // Position window on the same screen as the menu bar
-      positionWindowOnMenuScreen(window)
+      // Force window to appear on current active space/desktop
+      window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+      
+      // Position window on the current active screen
+      positionWindowOnActiveScreen(window)
+      
+      // Make sure window appears on current space
+      window.orderFrontRegardless()
       
       // Show window with animation
       showWindowWithAnimation(window)
+      
+      // Reset collection behavior after showing
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+        window.collectionBehavior = [.fullScreenAuxiliary]
+      }
     }
   }
   
@@ -388,40 +436,125 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
   
   // MARK: - Window Positioning and Animation
   
-  private func positionWindowOnMenuScreen(_ window: NSWindow) {
-    // Get the screen where the menu bar is located
+  private func positionWindowOnActiveScreen(_ window: NSWindow) {
+    // Get the current active screen using multiple methods for reliability
     var targetScreen: NSScreen?
-    var buttonFrame: NSRect?
     
-    // Try to get screen and button position from status bar button
-    if let button = statusBarItem?.button,
-       let buttonWindow = button.window,
-       let screen = buttonWindow.screen {
-      targetScreen = screen
-      // Get button frame in screen coordinates
-      buttonFrame = button.convert(button.bounds, to: nil)
-      buttonFrame = buttonWindow.convertToScreen(buttonFrame!)
-    } else {
-      // Fallback to main screen
-      targetScreen = NSScreen.main
+    // Method 1: Try to get screen with mouse cursor
+    let mouseLocation = NSEvent.mouseLocation
+    for screen in NSScreen.screens {
+      if screen.frame.contains(mouseLocation) {
+        targetScreen = screen
+        break
+      }
     }
     
-    guard let screen = targetScreen else { return }
+    // Method 2: If mouse method failed, try to get screen with key window
+    if targetScreen == nil {
+      if let keyWindow = NSApp.keyWindow {
+        targetScreen = keyWindow.screen
+      }
+    }
+    
+    // Method 3: If still no screen, use screen with menu bar
+    if targetScreen == nil {
+      targetScreen = NSScreen.screens.first { $0.frame.origin.y == 0 }
+    }
+    
+    // Final fallback: main screen
+    guard let screen = targetScreen ?? NSScreen.main else { return }
     
     let screenFrame = screen.visibleFrame
     let windowSize = window.frame.size
     
-    // Position window under menu bar, aligned to the right edge of screen
-    let rightX = screenFrame.maxX - windowSize.width - 10 // 10px margin from right edge
+    // Try to get status bar button position if it's on this screen
+    var buttonFrame: NSRect?
+    if let button = statusBarItem?.button,
+       let buttonWindow = button.window,
+       buttonWindow.screen == screen {
+      buttonFrame = button.convert(button.bounds, to: nil)
+      buttonFrame = buttonWindow.convertToScreen(buttonFrame!)
+    }
+    
+    // Position window at right edge of screen, at the very top (under menu bar)
+    let rightX = screenFrame.maxX - windowSize.width // No margin from right edge
+    var topY = screenFrame.maxY - windowSize.height // At the very top of visible area
+    
+    // Debug info
+    print("Screen frame: \(screenFrame)")
+    print("Window size: \(windowSize)")
+    print("Calculated position: rightX=\(rightX), topY=\(topY)")
+    
+    // If status bar button is on this screen, try to position relative to it
+    if let buttonRect = buttonFrame {
+      print("Button frame: \(buttonRect)")
+      // Position window right at the top of screen, aligned with button
+      topY = screenFrame.maxY - windowSize.height // Keep at very top
+      
+      // Try to align window to end near the button
+      let buttonCenterX = buttonRect.midX
+      let windowX = buttonCenterX - windowSize.width / 2
+      
+      // Check if button-aligned position fits on screen
+      if windowX >= screenFrame.minX && windowX + windowSize.width <= screenFrame.maxX {
+        let finalX = windowX
+        let finalY = topY
+        window.setFrameOrigin(NSPoint(x: finalX, y: finalY))
+        print("Positioned window centered on status bar button on screen: \(screen.localizedName) at (\(finalX), \(finalY))")
+        return
+      }
+    }
+    
+    // Default positioning: right edge of screen, very top
+    let finalX = rightX
+    let finalY = topY
+    
+    // Position the window
+    window.setFrameOrigin(NSPoint(x: finalX, y: finalY))
+    
+    print("Positioned window at right edge and top of screen: \(screen.localizedName) at (\(finalX), \(finalY))")
+  }
+  
+  private func positionWindowOnMenuScreen(_ window: NSWindow) {
+    // Get the screen where the mouse cursor is currently located (active screen)
+    let mouseLocation = NSEvent.mouseLocation
+    var targetScreen: NSScreen?
+    
+    // Find the screen that contains the mouse cursor
+    for screen in NSScreen.screens {
+      if screen.frame.contains(mouseLocation) {
+        targetScreen = screen
+        break
+      }
+    }
+    
+    // Fallback to main screen if mouse position not found
+    guard let screen = targetScreen ?? NSScreen.main else { return }
+    
+    let screenFrame = screen.visibleFrame
+    let windowSize = window.frame.size
+    
+    // Try to get status bar button position on the target screen
+    var buttonFrame: NSRect?
+    if let button = statusBarItem?.button,
+       let buttonWindow = button.window,
+       buttonWindow.screen == screen {
+      // Status bar is on the same screen as mouse cursor
+      buttonFrame = button.convert(button.bounds, to: nil)
+      buttonFrame = buttonWindow.convertToScreen(buttonFrame!)
+    }
+    
+    // Position window under menu bar, centered horizontally on screen
+    let centerX = screenFrame.midX - windowSize.width / 2
     var topY = screenFrame.maxY - windowSize.height - 10 // 10px below menu bar
     
-    // If we have button position, position under the button
+    // If we have button position on this screen, position under the button
     if let buttonRect = buttonFrame {
       topY = buttonRect.minY - windowSize.height - 10 // 10px below button
     }
     
     // Ensure window doesn't go off screen
-    let finalX = max(screenFrame.minX + 10, rightX)
+    let finalX = max(screenFrame.minX + 10, min(centerX, screenFrame.maxX - windowSize.width - 10))
     let finalY = max(screenFrame.minY + 10, topY)
     
     // Position the window
@@ -443,8 +576,11 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
     )
     window.setFrame(initialFrame, display: false)
     
-    // Make window visible but transparent
+    // Make window visible on current space
     window.makeKeyAndOrderFront(nil)
+    
+    // Ensure window is on current desktop space
+    window.orderFrontRegardless()
     
     // Animate to final state with dropdown effect
     NSAnimationContext.runAnimationGroup({ context in
@@ -454,7 +590,8 @@ class AppDelegate: FlutterAppDelegate, NSWindowDelegate {
       window.animator().alphaValue = originalAlpha
       window.animator().setFrame(originalFrame, display: true)
     }, completionHandler: {
-      // Animation completed
+      // Animation completed - make sure window stays on current space
+      window.makeKeyAndOrderFront(nil)
     })
   }
   

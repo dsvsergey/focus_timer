@@ -11,6 +11,7 @@ import '../models/app_settings.dart';
 import '../repositories/database_repository.dart';
 import '../services/notification_service.dart';
 import '../services/macos_service.dart';
+import '../services/window_service.dart';
 
 @injectable
 class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
@@ -18,11 +19,13 @@ class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
     this._databaseRepository,
     this._notificationService,
     this._macosService,
+    this._windowService,
   ) : super(const TimerState());
 
   final DatabaseRepository _databaseRepository;
   final NotificationService _notificationService;
   final MacOSService _macosService;
+  final WindowService _windowService;
   Timer? _timer;
   AppSettings? _settings;
   DateTime? _backgroundTime;
@@ -93,6 +96,7 @@ class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
 
     // Show menu bar icon and update with initial time
     await _macosService.showMenuBarIcon();
+    await _windowService.showMenuBarIcon();
     await _updateMacOSDisplay();
     await _updateMacOSMenuItems();
   }
@@ -110,6 +114,9 @@ class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
           remainingSeconds: state.remainingSeconds,
           sessionType: state.currentSessionType.name,
         );
+
+        // Hide window when timer starts (move to menu bar)
+        _windowService.hideWindow();
       }
 
       _updateMacOSDisplay();
@@ -213,6 +220,7 @@ class TimerCubit extends Cubit<TimerState> with WidgetsBindingObserver {
 
       // Update menu bar with status and time (works even in background)
       await _macosService.updateMenuBarTitle('$statusEmoji $timeString');
+      await _windowService.updateMenuBarTitle('$statusEmoji $timeString');
     } catch (e) {
       debugPrint('Error updating macOS display: $e');
     }

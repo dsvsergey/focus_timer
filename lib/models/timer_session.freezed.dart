@@ -18,7 +18,7 @@ final _privateConstructorUsedError = UnsupportedError(
 mixin _$TimerSession {
   int? get id => throw _privateConstructorUsedError;
   DateTime get date => throw _privateConstructorUsedError;
-  @Enumerated(EnumType.ordinal)
+  @Enumerated(EnumType.name)
   SessionType get type => throw _privateConstructorUsedError;
   int get duration => throw _privateConstructorUsedError; // duration in minutes
   bool get completed => throw _privateConstructorUsedError;
@@ -37,7 +37,7 @@ abstract class $TimerSessionCopyWith<$Res> {
   $Res call(
       {int? id,
       DateTime date,
-      @Enumerated(EnumType.ordinal) SessionType type,
+      @Enumerated(EnumType.name) SessionType type,
       int duration,
       bool completed});
 }
@@ -97,7 +97,7 @@ abstract class _$$TimerSessionImplCopyWith<$Res>
   $Res call(
       {int? id,
       DateTime date,
-      @Enumerated(EnumType.ordinal) SessionType type,
+      @Enumerated(EnumType.name) SessionType type,
       int duration,
       bool completed});
 }
@@ -150,7 +150,7 @@ class _$TimerSessionImpl extends _TimerSession {
   const _$TimerSessionImpl(
       {this.id,
       required this.date,
-      @Enumerated(EnumType.ordinal) required this.type,
+      @Enumerated(EnumType.name) required this.type,
       required this.duration,
       required this.completed})
       : super._();
@@ -160,7 +160,7 @@ class _$TimerSessionImpl extends _TimerSession {
   @override
   final DateTime date;
   @override
-  @Enumerated(EnumType.ordinal)
+  @Enumerated(EnumType.name)
   final SessionType type;
   @override
   final int duration;
@@ -202,7 +202,7 @@ abstract class _TimerSession extends TimerSession {
   const factory _TimerSession(
       {final int? id,
       required final DateTime date,
-      @Enumerated(EnumType.ordinal) required final SessionType type,
+      @Enumerated(EnumType.name) required final SessionType type,
       required final int duration,
       required final bool completed}) = _$TimerSessionImpl;
   const _TimerSession._() : super._();
@@ -212,7 +212,7 @@ abstract class _TimerSession extends TimerSession {
   @override
   DateTime get date;
   @override
-  @Enumerated(EnumType.ordinal)
+  @Enumerated(EnumType.name)
   SessionType get type;
   @override
   int get duration;

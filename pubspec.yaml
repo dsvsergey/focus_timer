@@ -38,6 +38,9 @@ dependencies:
   # Utils
   equatable: ^2.0.5
   
+  # System Tray
+  system_tray: ^2.0.3
+  
   # Dependency Injection
   get_it: ^8.0.2
   injectable: ^2.4.4

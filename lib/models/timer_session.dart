@@ -1,3 +1,5 @@
+// ignore_for_file: invalid_annotation_target
+
 import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:isar/isar.dart';
 
@@ -12,7 +14,7 @@ class TimerSession with _$TimerSession {
   const factory TimerSession({
     Id? id,
     required DateTime date,
-    required SessionType type,
+    @Enumerated(EnumType.name) required SessionType type,
     required int duration, // duration in minutes
     required bool completed,
   }) = _TimerSession;

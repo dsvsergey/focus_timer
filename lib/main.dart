@@ -5,10 +5,16 @@ import 'l10n/app_localizations.dart';
 import 'core/injection.dart';
 import 'cubit/timer_cubit.dart';
 import 'screens/timer_screen.dart';
+import 'services/window_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   configureDependencies();
+
+  // Initialize window service for menu bar functionality
+  final windowService = getIt<WindowService>();
+  await windowService.initialize();
+
   runApp(const FocusTimerApp());
 }
 
